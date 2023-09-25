@@ -4,8 +4,8 @@ import "testing"
 
 // Worker should read from file
 func TestWorkerReadFile(t *testing.T) {
-	filename := "test_worker.json"
-	output := readFromFile(filename)
+	filepath := "test_resources\\test_worker.json"
+	output := readFromFile(filepath)
 	if output != "this is a test" {
 		t.Errorf("File output = %v; want 'this is a test'", output)
 		t.Fail()
