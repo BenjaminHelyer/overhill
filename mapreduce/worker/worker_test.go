@@ -15,6 +15,8 @@ func TestWorkerReadFile(t *testing.T) {
 	}
 }
 
+// an example for how we would unit test a Map function by itself
+// will likely not use in unit tests for worker process
 func MockEmitIntermediate(intermediateKey string, intermediateValue string) {
 	return
 }
@@ -56,6 +58,8 @@ func TestWorkerReadRemoteDisk(t *testing.T) {
 	}
 }
 
+// an example for how we would unit test a Reduce function by itself
+// will likely not use in unit tests for worker process
 func MockEmitFinal(outputKey string, outputVals []string) {
 	return
 }
