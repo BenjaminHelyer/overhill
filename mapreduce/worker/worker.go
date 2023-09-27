@@ -1,22 +1,32 @@
 package worker
 
-func readFromFile(filepath string) string {
+func ReadFromFile(filepath string) string {
 	return ""
 }
 
-func writeToFile(filepath string) {
+func WriteToFile(filepath string, contents string) {
 	return
 }
 
-type MapFunc func(string, string) (string, string)
+// pass emit to the user function so that they can easily mock it
+// separates concerns from MapFunc and EmitIntermediate
+type MapFunc func(inputKey string, inputVal string, emit func(string, string))
 
-func runMapFunc(userFunc MapFunc, input_key string, input_val string) (string, string) {
+func EmitIntermediate(intermediateKey string, intermediateValue string) {
+	return
+}
+
+func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, string) {
 	return "", ""
 }
 
 // TODO: make the second argument an iterator rather than an array
-type ReduceFunc func(string, [10]string) (string, [2]string)
+type ReduceFunc func(inputKey string, inputVals []string, emit func(string, []string))
 
-func runReduceFunc(userFunc ReduceFunc, input_key string, input_vals [10]string) (string, [2]string) {
-	return "", [2]string{"", ""}
+func EmitFinal(outputKey string, outputVals []string) {
+
+}
+
+func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (string, []string) {
+	return "", []string{"", ""}
 }
