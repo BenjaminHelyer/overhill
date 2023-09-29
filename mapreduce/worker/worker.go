@@ -1,5 +1,10 @@
 package worker
 
+import (
+	"bufio"
+	"os"
+)
+
 type Worker struct {
 }
 
@@ -12,7 +17,27 @@ func (w *Worker) RunReduceProcess() {
 }
 
 func ReadFromFile(filepath string) (string, error) {
-	return "", nil
+	file, fileOpenError := os.Open(filepath)
+	if fileOpenError != nil {
+		return "", fileOpenError
+	}
+	defer file.Close()
+
+	fileText := ""
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		currLine := scanner.Text()
+		fileText += currLine
+	}
+
+	// interestingly, go lets us separate initialization
+	// from condition via the ;
+	if scannerError := scanner.Err(); scannerError != nil {
+		return "", scannerError
+	}
+
+	return fileText, nil
 }
 
 func WriteToFile(filepath string, contents string) {

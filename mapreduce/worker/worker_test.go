@@ -20,7 +20,7 @@ func TestWorkerReadFile(t *testing.T) {
 }
 
 // Read file function should raise error upon nonexistent file
-func TestWorkerReadFile_Empty(t *testing.T) {
+func TestWorkerReadFile_Nonexistent(t *testing.T) {
 	filepath := "nonexistent\\garbage\\nihil.txt"
 	output, err := ReadFromFile(filepath)
 	if err == nil {
