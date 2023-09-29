@@ -11,8 +11,10 @@ type WorkerFuncs interface {
 }
 
 type Worker struct {
+	emittedIntermediateKeys []string
 	emittedIntermediateVals []string
-	emittedFinalVals        []string
+	emittedFinalKeys        []string
+	emittedFinalVals        [][]string
 }
 
 func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
@@ -123,7 +125,8 @@ func WriteToFile(filepath string, contents string) error {
 type MapFunc func(inputKey string, inputVal string, emit func(string, string))
 
 func (w *Worker) EmitIntermediate(intermediateKey string, intermediateValue string) {
-	w.emittedIntermediateVals = []string{""}
+	w.emittedIntermediateKeys = append(w.emittedIntermediateKeys, intermediateKey)
+	w.emittedIntermediateVals = append(w.emittedIntermediateVals, intermediateValue)
 }
 
 func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, string) {
@@ -134,7 +137,8 @@ func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, str
 type ReduceFunc func(inputKey string, inputVals []string, emit func(string, []string))
 
 func (w *Worker) EmitFinal(outputKey string, outputVals []string) {
-	w.emittedFinalVals = []string{""}
+	w.emittedFinalKeys = append(w.emittedFinalKeys, outputKey)
+	w.emittedFinalVals = append(w.emittedFinalVals, outputVals)
 }
 
 func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (string, []string) {
