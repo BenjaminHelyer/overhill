@@ -123,7 +123,7 @@ func WriteToFile(filepath string, contents string) error {
 type MapFunc func(inputKey string, inputVal string, emit func(string, string))
 
 func (w *Worker) EmitIntermediate(intermediateKey string, intermediateValue string) {
-	return
+	w.emittedIntermediateVals = []string{""}
 }
 
 func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, string) {
@@ -134,7 +134,7 @@ func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, str
 type ReduceFunc func(inputKey string, inputVals []string, emit func(string, []string))
 
 func (w *Worker) EmitFinal(outputKey string, outputVals []string) {
-
+	w.emittedFinalVals = []string{""}
 }
 
 func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (string, []string) {
