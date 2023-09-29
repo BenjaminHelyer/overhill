@@ -40,8 +40,27 @@ func ReadFromFile(filepath string) (string, error) {
 	return fileText, nil
 }
 
-func WriteToFile(filepath string, contents string) {
-	return
+func WriteToFile(filepath string, contents string) error {
+	file, fileCreationError := os.Create(filepath)
+	if fileCreationError != nil {
+		return fileCreationError
+	}
+	defer file.Close()
+
+	writer := bufio.NewWriter(file)
+
+	_, writeError := writer.WriteString(contents)
+	if writeError != nil {
+		return writeError
+	}
+
+	// ensure all data is written to file before closing the file
+	flushError := writer.Flush()
+	if flushError != nil {
+		return flushError
+	}
+
+	return nil
 }
 
 // pass emit to the user function so that they can easily mock it

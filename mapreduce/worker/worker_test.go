@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bufio"
 	"os"
 	"testing"
 )
@@ -56,13 +57,44 @@ func TestWorkerRunMapFunc(t *testing.T) {
 
 // Worker should write to local disk
 func TestWorkerWriteDisk(t *testing.T) {
-	filepath := "test_resources\\worker_output.json"
-	contents := ""
-	WriteToFile(filepath, contents)
+	filepath := "test_resources\\worker_output.txt"
+	contents := "the lazy dog jumped over the quick brown fox"
+	writerError := WriteToFile(filepath, contents)
+
+	if writerError != nil {
+		t.Errorf("Error upon calling function to write to file: %v", writerError)
+		t.Fail()
+	}
+
 	_, err := os.Stat(filepath)
 	if err != nil {
-		t.Errorf("Error upon attempting to read output file: %v", err)
+		t.Errorf("Output file does not exist: %v", err)
 		t.Fail()
+	}
+
+	file, fileOpenError := os.Open(filepath)
+	if fileOpenError != nil {
+		t.Errorf("Error upon opening output file.")
+		t.Fail()
+	}
+
+	fileText := ""
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		currLine := scanner.Text()
+		fileText += currLine
+	}
+
+	if fileText != contents {
+		t.Errorf("Read text does not match input contents. Input contents were: %v", contents)
+		t.Fail()
+	}
+
+	file.Close()
+	os.Remove(filepath)
+	if err != nil {
+		t.Errorf("Error deleting")
 	}
 }
 
@@ -111,4 +143,6 @@ func TestWorkerWriteOutputFilesystem(t *testing.T) {
 		t.Errorf("Error upon attempting to read output file: %v", err)
 		t.Fail()
 	}
+
+	os.Remove(filepath)
 }
