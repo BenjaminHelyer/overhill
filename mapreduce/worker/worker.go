@@ -5,7 +5,14 @@ import (
 	"os"
 )
 
+type WorkerFuncs interface {
+	EmitIntermediate()
+	EmitFinal()
+}
+
 type Worker struct {
+	emittedIntermediateVals []string
+	emittedFinalVals        []string
 }
 
 func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
@@ -33,21 +40,13 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 	// Step 2: Run map function on file inputs
 	for index, key := range processedInputKeys {
 		value := processedInputValues[index]
-		userSpecifiedFunc(key, value, EmitIntermediate)
+		userSpecifiedFunc(key, value, w.EmitIntermediate)
 		// call emit inside the Map function
 	}
 
 	// Step 3: Write outputs to local disk
 	// read from emitted values, which will be stored in the Worker struct
 	return
-}
-
-func ProduceMapFunction(mapFuncKey string) MapFunc {
-	return nil
-}
-
-func PreProcessFileInput(mapFuncKey string, inputFileContents string) ([]string, []string) {
-	return []string{""}, []string{""}
 }
 
 func (w *Worker) RunReduceProcess() {
@@ -62,6 +61,14 @@ func (w *Worker) RunReduceProcess() {
 	// Remotely, we'd want an actual file system somehow
 
 	return
+}
+
+func ProduceMapFunction(mapFuncKey string) MapFunc {
+	return nil
+}
+
+func PreProcessFileInput(mapFuncKey string, inputFileContents string) ([]string, []string) {
+	return []string{""}, []string{""}
 }
 
 func ReadFromFile(filepath string) (string, error) {
@@ -115,7 +122,7 @@ func WriteToFile(filepath string, contents string) error {
 // separates concerns from MapFunc and EmitIntermediate
 type MapFunc func(inputKey string, inputVal string, emit func(string, string))
 
-func EmitIntermediate(intermediateKey string, intermediateValue string) {
+func (w *Worker) EmitIntermediate(intermediateKey string, intermediateValue string) {
 	return
 }
 
@@ -126,7 +133,7 @@ func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, str
 // TODO: make the second argument an iterator rather than an array
 type ReduceFunc func(inputKey string, inputVals []string, emit func(string, []string))
 
-func EmitFinal(outputKey string, outputVals []string) {
+func (w *Worker) EmitFinal(outputKey string, outputVals []string) {
 
 }
 
