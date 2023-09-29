@@ -7,10 +7,28 @@ import (
 
 // Worker should read from file
 func TestWorkerReadFile(t *testing.T) {
-	filepath := "test_resources\\map_input.json"
-	output := ReadFromFile(filepath)
-	if output != "this is a test" {
-		t.Errorf("File output = %v; want 'this is a test'", output)
+	filepath := "test_resources\\map_input.txt"
+	output, err := ReadFromFile(filepath)
+	if output != "The quick brown fox jumped over the lazy dog." {
+		t.Errorf("File output = %v; want 'The quick brown fox jumped over the lazy dog.'", output)
+		t.Fail()
+	}
+	if err != nil {
+		t.Errorf("Error upon reading from valid file. Filepath = %v", filepath)
+		t.Fail()
+	}
+}
+
+// Read file function should raise error upon nonexistent file
+func TestWorkerReadFile_Empty(t *testing.T) {
+	filepath := "nonexistent\\garbage\\nihil.txt"
+	output, err := ReadFromFile(filepath)
+	if err == nil {
+		t.Errorf("Error not raised upon reasing from nonexistent file.")
+		t.Fail()
+	}
+	if output != "" {
+		t.Errorf("Got nonempty output from nonexistent file.")
 		t.Fail()
 	}
 }
@@ -51,9 +69,13 @@ func TestWorkerWriteDisk(t *testing.T) {
 // Worker should read from (possibly remote) disk
 func TestWorkerReadRemoteDisk(t *testing.T) {
 	filepath := "test_resources\\reduce_input.json"
-	output := ReadFromFile(filepath)
+	output, err := ReadFromFile(filepath)
 	if output != "this is a test" {
 		t.Errorf("File output = %v; want 'this is a test'", output)
+		t.Fail()
+	}
+	if err != nil {
+		t.Errorf("Error upon reading from valid file. Filepath = %v", filepath)
 		t.Fail()
 	}
 }

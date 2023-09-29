@@ -1,7 +1,18 @@
 package worker
 
-func ReadFromFile(filepath string) string {
-	return ""
+type Worker struct {
+}
+
+func (w *Worker) RunMapProcess() {
+	return
+}
+
+func (w *Worker) RunReduceProcess() {
+	return
+}
+
+func ReadFromFile(filepath string) (string, error) {
+	return "", nil
 }
 
 func WriteToFile(filepath string, contents string) {
