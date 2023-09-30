@@ -3,6 +3,7 @@ package worker
 import (
 	"bufio"
 	"os"
+	"strings"
 )
 
 type WorkerFuncs interface {
@@ -25,6 +26,7 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 	// Assumption: inputs are in the Map workers' local disks
 	// this assumption comes from the same way Google ran
 	// both GFS and MapReduce on the same set of machines
+	// Assumption: For now we'll stick with one file per Map process
 	inputFile, fileErr := ReadFromFile(filepath) // TODO: make this function part of worker struct
 	if fileErr != nil {
 		// TODO: do something upon an error
@@ -50,6 +52,7 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 
 	// Step 3: Write outputs to local disk
 	// read from emitted values, which will be stored in the Worker struct
+	// TODO: likely change all this to write to JSON
 	emitsToWrite := ""
 	for index, key := range w.emittedIntermediateKeys {
 		emitsToWrite = emitsToWrite + key + ": " + w.emittedIntermediateVals[index] + "\n "
@@ -74,7 +77,8 @@ func (w *Worker) RunReduceProcess() {
 }
 
 func ProduceMapFunction(mapFuncKey string) MapFunc {
-	return nil
+	// just return word count example for now
+	return mapWordCountSections
 }
 
 func PreProcessFileInput(mapFuncKey string, inputFileContents string) ([]string, []string) {
@@ -128,10 +132,6 @@ func WriteToFile(filepath string, contents string) error {
 	return nil
 }
 
-// pass emit to the user function so that they can easily mock it
-// separates concerns from MapFunc and EmitIntermediate
-type MapFunc func(inputKey string, inputVal string, emit func(string, string))
-
 func (w *Worker) EmitIntermediate(intermediateKey string, intermediateValue string) {
 	w.emittedIntermediateKeys = append(w.emittedIntermediateKeys, intermediateKey)
 	w.emittedIntermediateVals = append(w.emittedIntermediateVals, intermediateValue)
@@ -156,3 +156,16 @@ func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (st
 /*
 * ----- Begin built-in Map functions -----
  */
+
+// pass emit to the user function so that they can easily mock it
+// separates concerns from MapFunc and EmitIntermediate
+type MapFunc func(inputKey string, inputVal string, emit func(string, string))
+
+// N.B. we count words for sections of a file rather than
+// the entire file
+func mapWordCountSections(filename string, contents string, emit func(string, string)) {
+	words := strings.Fields(contents)
+	for _, word := range words {
+		emit(word, "1")
+	}
+}
