@@ -52,3 +52,18 @@ func TestRunMapFunc_WordCount(t *testing.T) {
 	file.Close()
 	os.Remove(expectedOutputFilepath)
 }
+
+func TestRunReduceFunc_WordCount(t *testing.T) {
+	inputFile := "test_resources/reduce_input.json"
+	reduceFuncKey := "wc"
+	expectedOutputFilepath := "final.json"
+
+	var uutWorker Worker
+	uutWorker.RunReduceProcess(inputFile, reduceFuncKey)
+
+	_, err := os.Stat(expectedOutputFilepath)
+	if err != nil {
+		t.Errorf("Intermediate file does not exist after running Map process: %v", err)
+		t.Fail()
+	}
+}
