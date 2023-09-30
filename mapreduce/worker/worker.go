@@ -11,6 +11,8 @@ type WorkerFuncs interface {
 }
 
 type Worker struct {
+	// Assumption: intermediate values are small
+	// enough for each partition that they can be held in-memory
 	emittedIntermediateKeys []string
 	emittedIntermediateVals []string
 	emittedFinalKeys        []string
@@ -48,6 +50,12 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 
 	// Step 3: Write outputs to local disk
 	// read from emitted values, which will be stored in the Worker struct
+	emitsToWrite := ""
+	for index, key := range w.emittedIntermediateKeys {
+		emitsToWrite = emitsToWrite + key + ": " + w.emittedIntermediateVals[index] + "\n "
+	}
+	WriteToFile("intermediate.txt", emitsToWrite)
+
 	return
 }
 
@@ -144,3 +152,7 @@ func (w *Worker) EmitFinal(outputKey string, outputVals []string) {
 func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (string, []string) {
 	return "", []string{"", ""}
 }
+
+/*
+* ----- Begin built-in Map functions -----
+ */
