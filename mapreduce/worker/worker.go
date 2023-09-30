@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -21,8 +22,7 @@ type Worker struct {
 	// Assumption: intermediate values are small
 	// enough for each partition that they can be held in-memory
 	emitttedIntermediates []KeyValue
-	emittedFinalKeys      []string
-	emittedFinalVals      [][]string
+	emittedFinals         []KeyValue
 }
 
 func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
@@ -62,28 +62,62 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 	return
 }
 
-func (w *Worker) RunReduceProcess() {
+// TODO: likely need to change this later such that it works on a given set of intermediate keys
+// i.e., rather than handing it a single filepath, hand it the key to search for along with the addresses of all machines
+// which have run a Map function
+func (w *Worker) RunReduceProcess(intermediateJsonpath string, reduceFuncKey string) {
 	// Step 1: Read remotely from another worker's disk
+	inputJsonContents, jsonErr := ReadFromJson(intermediateJsonpath)
+	if jsonErr != nil {
+		// TODO: do something upon jsonErr
+	}
 
-	// Step 2: Run reduce function on inputs held in memory
-	// Cannot assume that all values for a given intermediate key
-	// can be held in memory.
+	userSpecifiedFunc := ProduceReduceFunction(reduceFuncKey)
 
-	// Step 3: Write outputs to file system
+	// Step 2: Combine all values for a given key
+	// Assume for now that all values for a given intermediate
+	// key can be held in memory.
+
+	// TODO: have this accept multiple keys and likely have a function inside that
+	// loops over all the keys handed to this one, combining each one
+	// For now we just hand it a json with key-value pairs and have it
+	// combine everything inside that JSON
+	combinedKvs := CombineValuesForKeys(inputJsonContents)
+
+	// Step 3: Run reduce function on inputs held in memory
+	for key := range combinedKvs {
+		userSpecifiedFunc(key, combinedKvs[key], w.EmitFinal)
+	}
+
+	// Step 4: Write outputs to file system
 	// Locally, this can just be a separate folder
 	// Remotely, we'd want an actual file system somehow
+	WriteToJson("final.json", w.emittedFinals)
 
 	return
 }
 
 func ProduceMapFunction(mapFuncKey string) MapFunc {
 	// just return word count example for now
-	return mapWordCountSections
+	return mapWordCount
+}
+
+func ProduceReduceFunction(reduceFuncKey string) ReduceFunc {
+	// just return word count example for now
+	return reduceWordCount
 }
 
 func PreProcessFileInput(mapFuncKey string, filepath string, inputFileContents string) ([]string, []string) {
 	// just return identity for now
 	return []string{filepath}, []string{inputFileContents}
+}
+
+func CombineValuesForKeys(kvs []KeyValue) map[string][]string {
+	kvMap := make(map[string][]string)
+	for _, kv := range kvs {
+		kvMap[kv.Key] = append(kvMap[kv.Key], kv.Value)
+	}
+	return kvMap
 }
 
 func ReadFromFile(filepath string) (string, error) {
@@ -126,6 +160,10 @@ func WriteToJson(jsonpath string, kvPairs []KeyValue) error {
 	return nil
 }
 
+func ReadFromJson(jsonpath string) ([]KeyValue, error) {
+	return []KeyValue{{Key: "", Value: ""}}, nil
+}
+
 func WriteToFile(filepath string, contents string) error {
 	file, fileCreationError := os.Create(filepath)
 	if fileCreationError != nil {
@@ -161,12 +199,12 @@ func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, str
 	return "", ""
 }
 
-// TODO: make the second argument an iterator rather than an array
-type ReduceFunc func(inputKey string, inputVals []string, emit func(string, []string))
-
 func (w *Worker) EmitFinal(outputKey string, outputVals []string) {
-	w.emittedFinalKeys = append(w.emittedFinalKeys, outputKey)
-	w.emittedFinalVals = append(w.emittedFinalVals, outputVals)
+	kv := KeyValue{
+		Key:   outputKey,
+		Value: strings.Join(outputVals, ","),
+	}
+	w.emittedFinals = append(w.emittedFinals, kv)
 }
 
 func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (string, []string) {
@@ -180,12 +218,16 @@ func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (st
 // pass emit to the user function so that they can easily mock it
 // separates concerns from MapFunc and EmitIntermediate
 type MapFunc func(inputKey string, inputVal string, emit func(string, string))
+type ReduceFunc func(inputKey string, inputVals []string, emit func(string, []string))
 
-// N.B. we count words for sections of a file rather than
-// the entire file
-func mapWordCountSections(filename string, contents string, emit func(string, string)) {
+func mapWordCount(filename string, contents string, emit func(string, string)) {
 	words := strings.Fields(contents)
 	for _, word := range words {
 		emit(word, "1")
 	}
+}
+
+func reduceWordCount(word string, counts []string, emit func(string, []string)) {
+	// since we assume all word count values are one, just return length of value slice
+	emit(word, []string{strconv.Itoa(len(counts))})
 }
