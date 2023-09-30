@@ -2,9 +2,15 @@ package worker
 
 import (
 	"bufio"
+	"encoding/json"
 	"os"
 	"strings"
 )
+
+type KeyValue struct {
+	Key   string
+	Value string
+}
 
 type WorkerFuncs interface {
 	EmitIntermediate()
@@ -14,10 +20,9 @@ type WorkerFuncs interface {
 type Worker struct {
 	// Assumption: intermediate values are small
 	// enough for each partition that they can be held in-memory
-	emittedIntermediateKeys []string
-	emittedIntermediateVals []string
-	emittedFinalKeys        []string
-	emittedFinalVals        [][]string
+	emitttedIntermediates []KeyValue
+	emittedFinalKeys      []string
+	emittedFinalVals      [][]string
 }
 
 func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
@@ -53,11 +58,7 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 	// Step 3: Write outputs to local disk
 	// read from emitted values, which will be stored in the Worker struct
 	// TODO: likely change all this to write to JSON
-	emitsToWrite := ""
-	for index, key := range w.emittedIntermediateKeys {
-		emitsToWrite = emitsToWrite + key + ": " + w.emittedIntermediateVals[index] + "\n ! "
-	}
-	WriteToFile("intermediate.txt", emitsToWrite)
+	WriteToJson("intermediate.json", w.emitttedIntermediates)
 
 	return
 }
@@ -110,6 +111,22 @@ func ReadFromFile(filepath string) (string, error) {
 	return fileText, nil
 }
 
+func WriteToJson(jsonpath string, kvPairs []KeyValue) error {
+	file, fileCreationError := os.Create(jsonpath)
+	if fileCreationError != nil {
+		return fileCreationError
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+
+	if encodingError := encoder.Encode(kvPairs); encodingError != nil {
+		return encodingError
+	}
+
+	return nil
+}
+
 func WriteToFile(filepath string, contents string) error {
 	file, fileCreationError := os.Create(filepath)
 	if fileCreationError != nil {
@@ -134,8 +151,11 @@ func WriteToFile(filepath string, contents string) error {
 }
 
 func (w *Worker) EmitIntermediate(intermediateKey string, intermediateValue string) {
-	w.emittedIntermediateKeys = append(w.emittedIntermediateKeys, intermediateKey)
-	w.emittedIntermediateVals = append(w.emittedIntermediateVals, intermediateValue)
+	kv := KeyValue{
+		Key:   intermediateKey,
+		Value: intermediateValue,
+	}
+	w.emitttedIntermediates = append(w.emitttedIntermediates, kv)
 }
 
 func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, string) {

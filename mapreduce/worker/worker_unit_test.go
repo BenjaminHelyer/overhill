@@ -155,16 +155,13 @@ func TestWorkerEmitIntermediate(t *testing.T) {
 
 	uutWorker.EmitIntermediate(key1, val1)
 
-	for _, key := range uutWorker.emittedIntermediateKeys {
-		if key != "test" {
-			t.Errorf("Different key found than expected. Key was %v, anticipated 'test'.", key)
+	for _, intermediatePair := range uutWorker.emitttedIntermediates {
+		if intermediatePair.Key != "test" {
+			t.Errorf("Different key found than expected. Key was %v, anticipated 'test'.", intermediatePair.Key)
 			t.Fail()
 		}
-	}
-
-	for _, val := range uutWorker.emittedIntermediateVals {
-		if val != "123" {
-			t.Errorf("Different value found than expected. Value was %v, anticipated '123'.", val)
+		if intermediatePair.Value != "123" {
+			t.Errorf("Different value found than expected. Key was %v, anticipated '123'.", intermediatePair.Key)
 			t.Fail()
 		}
 	}
