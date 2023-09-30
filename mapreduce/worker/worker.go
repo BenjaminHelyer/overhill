@@ -161,7 +161,19 @@ func WriteToJson(jsonpath string, kvPairs []KeyValue) error {
 }
 
 func ReadFromJson(jsonpath string) ([]KeyValue, error) {
-	return []KeyValue{{Key: "", Value: ""}}, nil
+	file, fileOpenError := os.Open(jsonpath)
+	if fileOpenError != nil {
+		// TODO: do something on a file open error
+	}
+
+	var decodedData []KeyValue
+	decoder := json.NewDecoder(file)
+
+	if decodeErr := decoder.Decode(&decodedData); decodeErr != nil {
+		// TODO: do something on a decode error
+	}
+
+	return decodedData, nil
 }
 
 func WriteToFile(filepath string, contents string) error {

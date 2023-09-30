@@ -76,8 +76,19 @@ func TestRunReduceFunc_WordCount(t *testing.T) {
 	var decodedData []KeyValue
 	decoder := json.NewDecoder(file)
 
-	print(decodedData)
-	print("*****")
-	print(decoder)
+	if decodeErr := decoder.Decode(&decodedData); decodeErr != nil {
+		t.Errorf("Error upon decoding output file.")
+		t.Fail()
+	}
 
+	for _, kv := range decodedData {
+		if kv.Key == "the" {
+			if kv.Value != "2" {
+				t.Errorf("Got different value than expected for 'the', got %v, expected %v.", kv.Value, 2)
+			}
+		}
+	}
+
+	file.Close()
+	os.Remove(expectedOutputFilepath)
 }
