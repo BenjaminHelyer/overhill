@@ -57,7 +57,6 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 
 	// Step 3: Write outputs to local disk
 	// read from emitted values, which will be stored in the Worker struct
-	// TODO: likely change all this to write to JSON
 	WriteToJson("intermediate.json", w.emitttedIntermediates)
 
 	return
