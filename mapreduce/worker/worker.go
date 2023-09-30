@@ -27,7 +27,7 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 	// this assumption comes from the same way Google ran
 	// both GFS and MapReduce on the same set of machines
 	// Assumption: For now we'll stick with one file per Map process
-	inputFile, fileErr := ReadFromFile(filepath) // TODO: make this function part of worker struct
+	inputFileContents, fileErr := ReadFromFile(filepath) // TODO: make this function part of worker struct
 	if fileErr != nil {
 		// TODO: do something upon an error
 	}
@@ -41,7 +41,7 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 	// 1C: pre-process string from file to hand to Map function
 	// this may just be an identity function for some values of mapFuncKey
 	// helps us to hand the map function input of a format that it expects
-	processedInputKeys, processedInputValues := PreProcessFileInput(mapFuncKey, inputFile)
+	processedInputKeys, processedInputValues := PreProcessFileInput(mapFuncKey, filepath, inputFileContents)
 
 	// Step 2: Run map function on file inputs
 	for index, key := range processedInputKeys {
@@ -55,7 +55,7 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 	// TODO: likely change all this to write to JSON
 	emitsToWrite := ""
 	for index, key := range w.emittedIntermediateKeys {
-		emitsToWrite = emitsToWrite + key + ": " + w.emittedIntermediateVals[index] + "\n "
+		emitsToWrite = emitsToWrite + key + ": " + w.emittedIntermediateVals[index] + "\n ! "
 	}
 	WriteToFile("intermediate.txt", emitsToWrite)
 
@@ -81,8 +81,9 @@ func ProduceMapFunction(mapFuncKey string) MapFunc {
 	return mapWordCountSections
 }
 
-func PreProcessFileInput(mapFuncKey string, inputFileContents string) ([]string, []string) {
-	return []string{""}, []string{""}
+func PreProcessFileInput(mapFuncKey string, filepath string, inputFileContents string) ([]string, []string) {
+	// just return identity for now
+	return []string{filepath}, []string{inputFileContents}
 }
 
 func ReadFromFile(filepath string) (string, error) {

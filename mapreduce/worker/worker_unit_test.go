@@ -146,3 +146,26 @@ func TestWorkerWriteOutputFilesystem(t *testing.T) {
 
 	os.Remove(filepath)
 }
+
+func TestWorkerEmitIntermediate(t *testing.T) {
+	var uutWorker Worker
+
+	key1 := "test"
+	val1 := "123"
+
+	uutWorker.EmitIntermediate(key1, val1)
+
+	for _, key := range uutWorker.emittedIntermediateKeys {
+		if key != "test" {
+			t.Errorf("Different key found than expected. Key was %v, anticipated 'test'.", key)
+			t.Fail()
+		}
+	}
+
+	for _, val := range uutWorker.emittedIntermediateVals {
+		if val != "123" {
+			t.Errorf("Different value found than expected. Value was %v, anticipated '123'.", val)
+			t.Fail()
+		}
+	}
+}
