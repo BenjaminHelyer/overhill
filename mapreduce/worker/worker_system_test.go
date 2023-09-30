@@ -66,4 +66,18 @@ func TestRunReduceFunc_WordCount(t *testing.T) {
 		t.Errorf("Intermediate file does not exist after running Map process: %v", err)
 		t.Fail()
 	}
+
+	file, fileOpenError := os.Open(expectedOutputFilepath)
+	if fileOpenError != nil {
+		t.Errorf("Error upon opening output file.")
+		t.Fail()
+	}
+
+	var decodedData []KeyValue
+	decoder := json.NewDecoder(file)
+
+	print(decodedData)
+	print("*****")
+	print(decoder)
+
 }
