@@ -25,7 +25,7 @@ type Worker struct {
 	emittedFinals         []KeyValue
 }
 
-func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
+func (w *Worker) RunMapProcess(filepath string, mapFuncKey string, outputFilename string) {
 	// Step 1: Get inputs for Map function
 	// 1A: Read from file
 	// Assumption: inputs are in the Map workers' local disks
@@ -57,15 +57,13 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string) {
 
 	// Step 3: Write outputs to local disk
 	// read from emitted values, which will be stored in the Worker struct
-	WriteToJson("intermediate.json", w.emitttedIntermediates)
-
-	return
+	WriteToJson(outputFilename, w.emitttedIntermediates)
 }
 
 // TODO: likely need to change this later such that it works on a given set of intermediate keys
 // i.e., rather than handing it a single filepath, hand it the key to search for along with the addresses of all machines
 // which have run a Map function
-func (w *Worker) RunReduceProcess(intermediateJsonpath string, reduceFuncKey string) {
+func (w *Worker) RunReduceProcess(intermediateJsonpath string, reduceFuncKey string, outputFilename string) {
 	// Step 1: Read remotely from another worker's disk
 	inputJsonContents, jsonErr := ReadFromJson(intermediateJsonpath)
 	if jsonErr != nil {
@@ -92,14 +90,17 @@ func (w *Worker) RunReduceProcess(intermediateJsonpath string, reduceFuncKey str
 	// Step 4: Write outputs to file system
 	// Locally, this can just be a separate folder
 	// Remotely, we'd want an actual file system somehow
-	WriteToJson("final.json", w.emittedFinals)
-
-	return
+	WriteToJson(outputFilename, w.emittedFinals)
 }
 
 func ProduceMapFunction(mapFuncKey string) MapFunc {
-	// just return word count example for now
-	return mapWordCount
+	if mapFuncKey == "wc" {
+		return mapWordCount
+	} else if mapFuncKey == "wc_total" {
+		return mapWordCount_Total
+	} else {
+		return mapWordCount // TODO: raise an error here, but return word count default for now
+	}
 }
 
 func ProduceReduceFunction(reduceFuncKey string) ReduceFunc {
@@ -165,6 +166,7 @@ func ReadFromJson(jsonpath string) ([]KeyValue, error) {
 	if fileOpenError != nil {
 		// TODO: do something on a file open error
 	}
+	defer file.Close()
 
 	var decodedData []KeyValue
 	decoder := json.NewDecoder(file)
@@ -207,20 +209,12 @@ func (w *Worker) EmitIntermediate(intermediateKey string, intermediateValue stri
 	w.emitttedIntermediates = append(w.emitttedIntermediates, kv)
 }
 
-func RunMapFunc(userFunc MapFunc, inputKey string, inputVal string) (string, string) {
-	return "", ""
-}
-
 func (w *Worker) EmitFinal(outputKey string, outputVals []string) {
 	kv := KeyValue{
 		Key:   outputKey,
 		Value: strings.Join(outputVals, ","),
 	}
 	w.emittedFinals = append(w.emittedFinals, kv)
-}
-
-func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (string, []string) {
-	return "", []string{"", ""}
 }
 
 /*
@@ -232,10 +226,19 @@ func RunReduceFunc(userFunc ReduceFunc, inputKey string, inputVals []string) (st
 type MapFunc func(inputKey string, inputVal string, emit func(string, string))
 type ReduceFunc func(inputKey string, inputVals []string, emit func(string, []string))
 
+// default; counts the number of occurances of each unique word
 func mapWordCount(filename string, contents string, emit func(string, string)) {
 	words := strings.Fields(contents)
 	for _, word := range words {
 		emit(word, "1")
+	}
+}
+
+// counts the number of total words
+func mapWordCount_Total(filename string, contents string, emit func(string, string)) {
+	words := strings.Fields(contents)
+	for i := 0; i < len(words); i++ {
+		emit("word", "1")
 	}
 }
 
