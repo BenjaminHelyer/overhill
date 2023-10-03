@@ -1,6 +1,9 @@
-package coordinator
+package main
 
-import "testing"
+import (
+	"main/coordinator"
+	"testing"
+)
 
 // we shall get the total word count of
 // several works of Emerson via MapReduce;
@@ -11,5 +14,8 @@ import "testing"
 // function (we don't worry about partitioning
 // for Reduce right now)
 func TestEmersonWordCount(t *testing.T) {
-
+	configFile := "test_resources/mocked_workers.json"
+	emersonFolder := "test_resources/emerson/"
+	var uutCoordinator coordinator.Coordinator
+	finalOutput, coordErrors := uutCoordinator.RunCoordinator(configFile, "wc_total", emersonFolder)
 }

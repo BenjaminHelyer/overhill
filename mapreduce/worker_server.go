@@ -47,7 +47,7 @@ func getRunReduce(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Complete")
 }
 
-func main() {
+func BootupWorker() {
 	fmt.Printf("Starting up server...\n")
 
 	http.HandleFunc("/map", getRunMap)
