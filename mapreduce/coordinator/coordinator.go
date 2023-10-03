@@ -9,9 +9,10 @@ import (
 )
 
 type Coordinator struct {
-	configFilepath string
-	taskStatus     map[string]string
-	workerStatus   map[string]string
+	configFilepath        string
+	mapPartitionStatus    map[string]string
+	reducePartitionStatus map[string]string
+	workerStatus          map[string]string
 }
 
 func (c *Coordinator) LoadConfig(configFilepath string) error {

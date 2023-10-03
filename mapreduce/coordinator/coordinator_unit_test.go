@@ -38,12 +38,6 @@ func TestSendMapRequest(t *testing.T) {
 	}
 }
 
-// The state of the coordinator shall be updated upon
-// the completion of a Map request
-func TestUpdateStateMapCompletion(t *testing.T) {
-
-}
-
 // Coordinator shall send a HTTP request to workers to run a Reduce function
 // the state of the MapReduce job shall be updated upon receiving a confirmation
 // from the worker
@@ -57,12 +51,6 @@ func TestSendReduceRequest(t *testing.T) {
 	if response != expectedResponse {
 		t.Errorf("Response to Reduce request was %v, expected response was %v", response, expectedResponse)
 	}
-}
-
-// The state of the coordinator shall be updated upon
-// the completion of a Reduce request
-func TestUpdateStateReduceCompletion(t *testing.T) {
-
 }
 
 // Coordinator shall load list of known worker servers
