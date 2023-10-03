@@ -1,0 +1,4 @@
+{
+    "my_worker": "8080",
+    "second_worker": "8081"
+}

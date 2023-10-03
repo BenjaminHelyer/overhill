@@ -1,13 +1,34 @@
 package coordinator
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
+)
+
+var mockWorker httptest.Server
+
+func TestMain(m *testing.M) {
+	mockWorker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		responseBody := "Complete"
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(responseBody))
+	}))
+	defer mockWorker.Close()
+
+	exitCode := m.Run()
+	os.Exit(exitCode)
+}
 
 // Coordinator shall send a HTTP request to workers to run a Map function
 // the state of the MapReduce job shall be updated upon receiving a confirmation
 // from the worker
 func TestSendMapRequest(t *testing.T) {
+	workerUrl := mockWorker.URL
 	expectedResponse := "Complete"
-	response, mapError := SendMapRequest("url", "wc_total", "../storage/..", "intermediate.json")
+	response, mapError := SendMapRequest(workerUrl, "wc_total", "../storage/..", "intermediate.json")
 	if mapError != nil {
 		t.Errorf("Error raised after sending Map request: %v", mapError)
 	}
