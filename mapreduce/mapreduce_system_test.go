@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"main/coordinator"
+	"os"
 	"testing"
 )
 
@@ -23,5 +25,46 @@ func TestEmersonWordCount(t *testing.T) {
 		t.Errorf("Encountered errors when running the Coordinator: %v", coordErrors)
 		t.Fail()
 	}
+
+	_, err := os.Stat(finalOutput)
+	if err != nil {
+		t.Errorf("Final file does not exist after running Map process: %v", err)
+		t.Fail()
+	}
+
+	file, fileOpenError := os.Open(finalOutput)
+	if fileOpenError != nil {
+		t.Errorf("Error upon opening output file.")
+		t.Fail()
+	}
+
+	var decodedData map[string]string
+	decoder := json.NewDecoder(file)
+
+	if decodeErr := decoder.Decode(&decodedData); decodeErr != nil {
+		t.Errorf("Error upon decoding output file.")
+		t.Fail()
+	}
+
+	for key := range decodedData {
+		if key == "" {
+			t.Errorf("Test under construction.")
+			t.Fail()
+		} else {
+			t.Errorf("Test under construction.")
+			t.Fail()
+		}
+
+		if decodedData[key] == "" {
+			t.Errorf("Test under construction.")
+			t.Fail()
+		} else {
+			t.Errorf("Test under construction.")
+			t.Fail()
+		}
+	}
+
+	file.Close()
+	os.Remove(finalOutput)
 
 }
