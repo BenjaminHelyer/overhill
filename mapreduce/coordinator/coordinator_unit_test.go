@@ -64,7 +64,7 @@ func TestLoadConfig(t *testing.T) {
 		"second_worker": false,
 	}
 
-	var uutCoordinator Coordinator
+	uutCoordinator := NewCoordinator()
 	loadErr := uutCoordinator.LoadConfig(configFilepath)
 
 	if loadErr != nil {
@@ -99,7 +99,7 @@ func TestPartitionFolder(t *testing.T) {
 		"t3.txt": false,
 	}
 
-	var uutCoordinator Coordinator
+	uutCoordinator := NewCoordinator()
 	uutCoordinator.PartitionFolder(folderName)
 
 	if len(uutCoordinator.mapPartitionStatus) != len(expectedPartitions) {
@@ -112,6 +112,11 @@ func TestPartitionFolder(t *testing.T) {
 			expectedPartitions[partition] = true
 		} else {
 			t.Errorf("Did not correctly load all partitions input folder. Found unexpected partition: %v", partition)
+			t.Fail()
+		}
+
+		if uutCoordinator.mapPartitionStatus[partition] != "unprocessed" {
+			t.Errorf("Expected all partitions to be marked as 'unprocessed' after PartitionFolder func. Instead, found key %v", uutCoordinator.mapPartitionStatus[partition])
 			t.Fail()
 		}
 	}

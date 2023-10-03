@@ -15,12 +15,22 @@ type Coordinator struct {
 	workerStatus          map[string]string
 }
 
+func NewCoordinator() *Coordinator {
+	return &Coordinator{
+		configFilepath:        "",
+		mapPartitionStatus:    make(map[string]string),
+		reducePartitionStatus: make(map[string]string),
+		workerStatus:          make(map[string]string),
+	}
+}
+
 func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, inputFolder string) (string, error) {
 	// Step 1: Load the config
 	c.LoadConfig(configFilepath)
 
 	// Step 2: Partition the input folder contents (just by individual files for now)
 	// Note that later, input folder could be on a filesystem or object store rather than locally
+	c.PartitionFolder(inputFolder)
 
 	// Step 3: Assign map tasks to workers in the config
 	// (3a) Start off different threads for each worker
@@ -39,6 +49,21 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, inpu
 }
 
 func (c *Coordinator) PartitionFolder(folderPath string) error {
+	dir, openError := os.Open(folderPath)
+	if openError != nil {
+		return openError
+	}
+	defer dir.Close()
+
+	entries, contentsError := dir.ReadDir(-1)
+	if contentsError != nil {
+		return contentsError
+	}
+
+	for _, entry := range entries {
+		c.mapPartitionStatus[string(entry.Name())] = "unprocessed"
+	}
+
 	return nil
 }
 
