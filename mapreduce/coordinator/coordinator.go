@@ -17,6 +17,7 @@ type Coordinator struct {
 
 func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, inputFolder string) (string, error) {
 	// Step 1: Load the config
+	c.LoadConfig(configFilepath)
 
 	// Step 2: Partition the input folder contents (just by individual files for now)
 	// Note that later, input folder could be on a filesystem or object store rather than locally
@@ -35,6 +36,10 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, inpu
 
 	// Step 6: Return the filepath to the final output as well as any errors
 	return "", nil
+}
+
+func (c *Coordinator) PartitionFolder(folderPath string) error {
+	return nil
 }
 
 func (c *Coordinator) LoadConfig(configFilepath string) error {

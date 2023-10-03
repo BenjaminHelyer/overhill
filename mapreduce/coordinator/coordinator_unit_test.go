@@ -76,7 +76,7 @@ func TestLoadConfig(t *testing.T) {
 		if _, exists := expectedWorkerUrls[workerUrl]; exists {
 			expectedWorkerUrls[workerUrl] = true
 		} else {
-			t.Errorf("Did not correctly load all URLs from config file. Found unexpected URL in coordinator struct: %v", workerUrl)
+			t.Errorf("Did not correctly load all URLs from config file. Found unexpected URL: %v", workerUrl)
 			t.Fail()
 		}
 	}
@@ -89,14 +89,37 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
-// Coordinator shall send multiple map requests in parallel,
-// waiting for confirmations on all of them (does not test faults for now)
-func TestParallelMapRequests(t *testing.T) {
+func TestPartitionFolder(t *testing.T) {
+	folderName := "test_resources/example_folder"
+	// initialize expected partitions to false to symbolize
+	// that they are not yet found
+	expectedPartitions := map[string]bool{
+		"t1.txt": false,
+		"t2.txt": false,
+		"t3.txt": false,
+	}
 
-}
+	var uutCoordinator Coordinator
+	uutCoordinator.PartitionFolder(folderName)
 
-// Coordinator shall send multiple reduce requests in parallel,
-// waiting for confirmations on all of them (does not test faults for now)
-func TestParallelReduceRequests(t *testing.T) {
+	if len(uutCoordinator.mapPartitionStatus) != len(expectedPartitions) {
+		t.Errorf("Expected %v number of partitions, but got %v number.", expectedPartitions, len(uutCoordinator.mapPartitionStatus))
+		t.Fail()
+	}
 
+	for partition := range uutCoordinator.mapPartitionStatus {
+		if _, exists := expectedPartitions[partition]; exists {
+			expectedPartitions[partition] = true
+		} else {
+			t.Errorf("Did not correctly load all partitions input folder. Found unexpected partition: %v", partition)
+			t.Fail()
+		}
+	}
+
+	for partition := range expectedPartitions {
+		if expectedPartitions[partition] == false {
+			t.Errorf("Did not correctly load all parititions from input folder. This partition was not loaded: %v", partition)
+			t.Fail()
+		}
+	}
 }
