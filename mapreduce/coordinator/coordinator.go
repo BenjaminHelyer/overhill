@@ -15,6 +15,28 @@ type Coordinator struct {
 	workerStatus          map[string]string
 }
 
+func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, inputFolder string) (string, error) {
+	// Step 1: Load the config
+
+	// Step 2: Partition the input folder contents (just by individual files for now)
+	// Note that later, input folder could be on a filesystem or object store rather than locally
+
+	// Step 3: Assign map tasks to workers in the config
+	// (3a) Start off different threads for each worker
+	// (3b) Periodically check on each worker until completion
+	// (3c) Once completed, update the status of each worker as well as the Map partition status
+
+	// Step 4: Partition the intermediate files (just by indepedent worker outputs for now)
+
+	// Step 5: Assign reduce tasks to workers
+	// (5a) Start off different threads for each worker
+	// (5b) Periodically check on each worker until completion
+	// (5c) Once completed, update the status of each worker as well as the Reduce partition status
+
+	// Step 6: Return the filepath to the final output as well as any errors
+	return "", nil
+}
+
 func (c *Coordinator) LoadConfig(configFilepath string) error {
 	// n.b. we expect (for now) that the config file will be a .json
 	file, fileOpenError := os.Open(configFilepath)
