@@ -7,16 +7,17 @@ import (
 	"testing"
 )
 
-var mockWorker httptest.Server
+var mockWorkerLazyReliable *httptest.Server
 
 func TestMain(m *testing.M) {
-	mockWorker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// this mock doesn't check params, but it always sends back a response indicating the job is done
+	mockWorkerLazyReliable = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		responseBody := "Complete"
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(responseBody))
 	}))
-	defer mockWorker.Close()
+	defer mockWorkerLazyReliable.Close()
 
 	exitCode := m.Run()
 	os.Exit(exitCode)
@@ -26,7 +27,7 @@ func TestMain(m *testing.M) {
 // the state of the MapReduce job shall be updated upon receiving a confirmation
 // from the worker
 func TestSendMapRequest(t *testing.T) {
-	workerUrl := mockWorker.URL
+	workerUrl := mockWorkerLazyReliable.URL
 	expectedResponse := "Complete"
 	response, mapError := SendMapRequest(workerUrl, "wc_total", "../storage/..", "intermediate.json")
 	if mapError != nil {
@@ -47,8 +48,9 @@ func TestUpdateStateMapCompletion(t *testing.T) {
 // the state of the MapReduce job shall be updated upon receiving a confirmation
 // from the worker
 func TestSendReduceRequest(t *testing.T) {
+	workerUrl := mockWorkerLazyReliable.URL
 	expectedResponse := "Complete"
-	response, mapError := SendReduceRequest("url", "wc_total", "../storage/..", "intermediate.json")
+	response, mapError := SendReduceRequest(workerUrl, "wc_total", "../storage/..", "intermediate.json")
 	if mapError != nil {
 		t.Errorf("Error raised after sending Reduce request: %v", mapError)
 	}

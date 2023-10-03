@@ -1,5 +1,11 @@
 package coordinator
 
+import (
+	"fmt"
+	"io"
+	"net/http"
+)
+
 type Coordinator struct {
 	configFilepath string
 	taskStatus     map[string]string
@@ -11,9 +17,40 @@ func LoadConfig(coord Coordinator, configFilepath string) error {
 }
 
 func SendMapRequest(url string, mapFunc string, inputFilepath string, intermediateFilepath string) (string, error) {
-	return "", nil
+	parametrizedUrl := url + fmt.Sprintf("/map?func=%v&input=%v&output=%v", mapFunc, inputFilepath, intermediateFilepath)
+	response, requestErr := http.Get(parametrizedUrl)
+	if requestErr != nil {
+		return "", requestErr
+	}
+	defer response.Body.Close()
+
+	body, bodyErr := ReadAndRaiseResponse(*response)
+
+	return body, bodyErr
 }
 
 func SendReduceRequest(url string, mapFunc string, intermediateFilepath string, finalFilepath string) (string, error) {
-	return "", nil
+	parametrizedUrl := url + fmt.Sprintf("/reduce?func=%v&input=%v&output=%v", mapFunc, intermediateFilepath, finalFilepath)
+	response, requestErr := http.Get(parametrizedUrl)
+	if requestErr != nil {
+		return "", requestErr
+	}
+	defer response.Body.Close()
+
+	body, bodyErr := ReadAndRaiseResponse(*response)
+
+	return body, bodyErr
+}
+
+func ReadAndRaiseResponse(response http.Response) (string, error) {
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP Get request failed with status code: %v", response.StatusCode)
+	}
+
+	body, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		return "", readErr
+	}
+
+	return string(body), nil
 }
