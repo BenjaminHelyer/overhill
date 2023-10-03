@@ -3,7 +3,7 @@ package main
 func main() {
 	isCoordinator := false
 	if isCoordinator {
-		BootupCoordinator()
+		BootupCoordinator("", "", "")
 	} else {
 		BootupWorker()
 	}

@@ -18,4 +18,10 @@ func TestEmersonWordCount(t *testing.T) {
 	emersonFolder := "test_resources/emerson/"
 	var uutCoordinator coordinator.Coordinator
 	finalOutput, coordErrors := uutCoordinator.RunCoordinator(configFile, "wc_total", emersonFolder)
+
+	if coordErrors != nil {
+		t.Errorf("Encountered errors when running the Coordinator: %v", coordErrors)
+		t.Fail()
+	}
+
 }
