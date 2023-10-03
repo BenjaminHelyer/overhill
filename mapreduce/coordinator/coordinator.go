@@ -1,9 +1,11 @@
 package coordinator
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 )
 
 type Coordinator struct {
@@ -12,7 +14,18 @@ type Coordinator struct {
 	workerStatus   map[string]string
 }
 
-func LoadConfig(coord Coordinator, configFilepath string) error {
+func (c *Coordinator) LoadConfig(configFilepath string) error {
+	// n.b. we expect (for now) that the config file will be a .json
+	file, fileOpenError := os.Open(configFilepath)
+	if fileOpenError != nil {
+		// TODO: do something on a file open error
+	}
+	defer file.Close()
+	decoder := json.NewDecoder(file)
+	if decodeErr := decoder.Decode(&c.workerStatus); decodeErr != nil {
+		// TODO: do something on a decode error
+	}
+
 	return nil
 }
 

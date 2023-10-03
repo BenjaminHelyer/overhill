@@ -68,7 +68,37 @@ func TestUpdateStateReduceCompletion(t *testing.T) {
 // Coordinator shall load list of known worker servers
 // from a config file
 func TestLoadConfig(t *testing.T) {
+	configFilepath := "test_resources/mocked_workers.json"
+	// initialize expected urls to false to symbolize
+	// that they are not yet found
+	expectedWorkerUrls := map[string]bool{
+		"my_worker":     false,
+		"second_worker": false,
+	}
 
+	var uutCoordinator Coordinator
+	loadErr := uutCoordinator.LoadConfig(configFilepath)
+
+	if loadErr != nil {
+		t.Errorf("Error upon loading from config file: %v", loadErr)
+		t.Fail()
+	}
+
+	for workerUrl := range uutCoordinator.workerStatus {
+		if _, exists := expectedWorkerUrls[workerUrl]; exists {
+			expectedWorkerUrls[workerUrl] = true
+		} else {
+			t.Errorf("Did not correctly load all URLs from config file. Found unexpected URL in coordinator struct: %v", workerUrl)
+			t.Fail()
+		}
+	}
+
+	for url := range expectedWorkerUrls {
+		if expectedWorkerUrls[url] == false {
+			t.Errorf("Did not correctly load all URLs from config file. This URL was not loaded: %v", url)
+			t.Fail()
+		}
+	}
 }
 
 // Coordinator shall send multiple map requests in parallel,
