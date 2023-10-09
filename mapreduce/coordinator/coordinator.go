@@ -30,12 +30,21 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, inpu
 
 	// Step 2: Partition the input folder contents (just by individual files for now)
 	// Note that later, input folder could be on a filesystem or object store rather than locally
-	c.PartitionFolder(inputFolder)
+	paritionError := c.PartitionFolder(inputFolder)
+	if paritionError != nil {
+		print("Encountered partition error: ", paritionError.Error(), "\n")
+		return "", paritionError
+	}
 
 	// Step 3: Assign map tasks to workers in the config
 	// (3a) Start off different threads for each worker
 	// (3b) Periodically check on each worker until completion
 	// (3c) Once completed, update the status of each worker as well as the Map partition status
+	mapError := c.RunMapWorkers(mapFunc, inputFolder)
+
+	if mapError != nil {
+		return "", mapError
+	}
 
 	// Step 4: Partition the intermediate files (just by indepedent worker outputs for now)
 
@@ -60,10 +69,34 @@ func (c *Coordinator) PartitionFolder(folderPath string) error {
 		return contentsError
 	}
 
+	print("Etnries are")
 	for _, entry := range entries {
+		print("Entry: ", entry, "\n")
 		c.mapPartitionStatus[string(entry.Name())] = "unprocessed"
 	}
 
+	return nil
+}
+
+func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string) error {
+	var firstPartition string
+	for partition := range c.mapPartitionStatus {
+		firstPartition = partition
+		break
+	}
+
+	for workerUrl := range c.workerStatus {
+		// TODO: rather than combining here, let's store the path to the partition in the partition map
+		response, workerErr := SendMapRequest(workerUrl, mapFunc, inputFolder+firstPartition, "test"+"_intermediate.json")
+
+		// TODO: rather than raising here, mark the worker as bad and assign the map task to another worker
+		// but later need to consider the case where map task itself is bad
+		if response != "Complete" {
+			return fmt.Errorf("Received bad response from worker: %v", response)
+		} else if workerErr != nil {
+			return workerErr
+		}
+	}
 	return nil
 }
 
