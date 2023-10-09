@@ -25,7 +25,7 @@ type Worker struct {
 	emittedFinals         []KeyValue
 }
 
-func (w *Worker) RunMapProcess(filepath string, mapFuncKey string, outputFilename string) {
+func (w *Worker) RunMapProcess(filepath string, mapFuncKey string, outputFilename string) error {
 	// Step 1: Get inputs for Map function
 	// 1A: Read from file
 	// Assumption: inputs are in the Map workers' local disks
@@ -34,7 +34,7 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string, outputFilenam
 	// Assumption: For now we'll stick with one file per Map process
 	inputFileContents, fileErr := ReadFromFile(filepath) // TODO: make this function part of worker struct
 	if fileErr != nil {
-		// TODO: do something upon an error
+		return fileErr
 	}
 
 	// 1B: determine given Map function
@@ -58,16 +58,18 @@ func (w *Worker) RunMapProcess(filepath string, mapFuncKey string, outputFilenam
 	// Step 3: Write outputs to local disk
 	// read from emitted values, which will be stored in the Worker struct
 	WriteToJson(outputFilename, w.emitttedIntermediates)
+
+	return nil
 }
 
 // TODO: likely need to change this later such that it works on a given set of intermediate keys
 // i.e., rather than handing it a single filepath, hand it the key to search for along with the addresses of all machines
 // which have run a Map function
-func (w *Worker) RunReduceProcess(intermediateJsonpath string, reduceFuncKey string, outputFilename string) {
+func (w *Worker) RunReduceProcess(intermediateJsonpath string, reduceFuncKey string, outputFilename string) error {
 	// Step 1: Read remotely from another worker's disk
 	inputJsonContents, jsonErr := ReadFromJson(intermediateJsonpath)
 	if jsonErr != nil {
-		// TODO: do something upon jsonErr
+		return jsonErr
 	}
 
 	userSpecifiedFunc := ProduceReduceFunction(reduceFuncKey)
@@ -91,6 +93,8 @@ func (w *Worker) RunReduceProcess(intermediateJsonpath string, reduceFuncKey str
 	// Locally, this can just be a separate folder
 	// Remotely, we'd want an actual file system somehow
 	WriteToJson(outputFilename, w.emittedFinals)
+
+	return nil
 }
 
 func ProduceMapFunction(mapFuncKey string) MapFunc {

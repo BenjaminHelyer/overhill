@@ -26,10 +26,15 @@ func getRunMap(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Running map task...\n ")
 	var task worker.Worker
-	task.RunMapProcess(inputFilename, mapFuncName, outputFilename)
-
-	fmt.Printf("Finished map task. Intermediate output can be found at %v \n", outputFilename)
-	io.WriteString(w, "Complete")
+	mapErr := task.RunMapProcess(inputFilename, mapFuncName, outputFilename)
+	if mapErr != nil {
+		fmt.Printf("Encountered an error while running the Map process: %v", mapErr)
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, mapErr.Error())
+	} else {
+		fmt.Printf("Finished map task. Intermediate output can be found at %v \n", outputFilename)
+		io.WriteString(w, "Complete")
+	}
 }
 
 func getRunReduce(w http.ResponseWriter, r *http.Request) {
@@ -46,10 +51,15 @@ func getRunReduce(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Running reduce task...\n")
 	var task worker.Worker
-	task.RunReduceProcess(intermediateFilename, mapFuncName, outputFilename)
-
-	fmt.Printf("Finished reduce task. Final output can be found at %v \n", outputFilename)
-	io.WriteString(w, "Complete")
+	reduceErr := task.RunReduceProcess(intermediateFilename, mapFuncName, outputFilename)
+	if reduceErr != nil {
+		fmt.Printf("Encountered an error while running the Reduce process: %v", reduceErr)
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, reduceErr.Error())
+	} else {
+		fmt.Printf("Finished reduce task. Final output can be found at %v \n", outputFilename)
+		io.WriteString(w, "Complete")
+	}
 }
 
 func BootupWorker(port string) {

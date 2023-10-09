@@ -26,10 +26,13 @@ func TestEmersonWordCount_SingleWorker(t *testing.T) {
 
 	// TODO: ensure the worker process is closed
 	workerArgs := []string{"--port=5050"}
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := runSubprocess("../main.exe", workerArgs); err != nil {
-			t.Errorf("Error running worker subprocess: %v", err)
+		workerProcess, workerError := runSubprocess("../main.exe", workerArgs)
+		defer workerProcess.Process.Kill()
+		if workerError != nil {
+			t.Errorf("Error running worker subprocess: %v", workerError)
 			t.Fail()
 		}
 	}()
@@ -38,8 +41,10 @@ func TestEmersonWordCount_SingleWorker(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := runSubprocess("../main.exe", coordinatorArgs); err != nil {
-			t.Errorf("Error running coordinator subprocess: %v", err)
+		coordProcess, coordError := runSubprocess("../main.exe", coordinatorArgs)
+		defer coordProcess.Process.Kill()
+		if coordError != nil {
+			t.Errorf("Error running coordinator subprocess: %v", coordError)
 			t.Fail()
 		}
 	}()
@@ -47,7 +52,7 @@ func TestEmersonWordCount_SingleWorker(t *testing.T) {
 	wg.Wait()
 
 	expectedFinalResultPath := "test_final.json"
-	expectedIntermediateResultsPath := "intermediate/test_intermediate.json"
+	// expectedIntermediateResultsPath := "intermediate/test_intermediate.json"
 
 	_, fileExistsError := os.Stat(expectedFinalResultPath)
 	if fileExistsError != nil {
@@ -75,24 +80,29 @@ func TestEmersonWordCount_SingleWorker(t *testing.T) {
 		}
 	}
 
-	finalFile.Close()
-	removeErr := os.Remove(expectedFinalResultPath)
-	if removeErr != nil {
-		t.Errorf("Error deleting final output")
-	}
+	// finalFile.Close()
+	// removeErr := os.Remove(expectedFinalResultPath)
+	// if removeErr != nil {
+	// 	t.Errorf("Error deleting final output")
+	// }
 
-	os.Remove(expectedIntermediateResultsPath)
-	if removeErr != nil {
-		t.Errorf("Error deleting intermediate output")
-	}
+	// os.Remove(expectedIntermediateResultsPath)
+	// if removeErr != nil {
+	// 	t.Errorf("Error deleting intermediate output")
+	// }
 }
 
-func runSubprocess(name string, args []string) error {
+func runSubprocess(name string, args []string) (*exec.Cmd, error) {
 	print("***\n")
 	print("Running subprocess: ", name, " with args: ", args, "\n")
 	print("***\n")
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+
+	if startErr := cmd.Start(); startErr != nil {
+		return nil, startErr
+	}
+
+	return cmd, nil
 }
