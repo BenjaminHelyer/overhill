@@ -32,9 +32,8 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, redu
 
 	// Step 2: Partition the input folder contents (just by individual files for now)
 	// Note that later, input folder could be on a filesystem or object store rather than locally
-	paritionError := c.PartitionFolder(inputFolder)
+	paritionError := c.PartitionFolder(inputFolder, "map")
 	if paritionError != nil {
-		print("Encountered partition error: ", paritionError.Error(), "\n")
 		return "", paritionError
 	}
 
@@ -49,9 +48,8 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, redu
 	}
 
 	// Step 4: Partition the intermediate files (just by indepedent worker outputs for now)
-	partitionError := c.PartitionFolder(INTERMEDIATE_FOLDER)
+	partitionError := c.PartitionFolder(INTERMEDIATE_FOLDER, "reduce")
 	if partitionError != nil {
-		print("Encountered partition error: ", partitionError.Error(), "\n")
 		return "", partitionError
 	}
 
@@ -69,7 +67,7 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, redu
 	return "", nil
 }
 
-func (c *Coordinator) PartitionFolder(folderPath string) error {
+func (c *Coordinator) PartitionFolder(folderPath string, taskType string) error {
 	dir, openError := os.Open(folderPath)
 	if openError != nil {
 		return openError
@@ -81,10 +79,16 @@ func (c *Coordinator) PartitionFolder(folderPath string) error {
 		return contentsError
 	}
 
-	print("Etnries are")
-	for _, entry := range entries {
-		print("Entry: ", entry, "\n")
-		c.mapPartitionStatus[string(entry.Name())] = "unprocessed"
+	if taskType == "map" {
+		for _, entry := range entries {
+			c.mapPartitionStatus[string(entry.Name())] = "unprocessed"
+		}
+	} else if taskType == "reduce" {
+		for _, entry := range entries {
+			c.reducePartitionStatus[string(entry.Name())] = "unprocessed"
+		}
+	} else {
+		return fmt.Errorf("Received unexpected task type %v, task type must be 'map' or 'reduce' exactly.", taskType)
 	}
 
 	return nil
@@ -118,6 +122,8 @@ func (c *Coordinator) RunReduceWorkers(reduceFunc string, intermediateFolder str
 		firstPartition = partition
 		break
 	}
+
+	print("Saw first partition as: ", firstPartition, "\n")
 
 	for workerUrl := range c.workerStatus {
 		// TODO: rather than combining here, let's store the path to the partition in the partition map
