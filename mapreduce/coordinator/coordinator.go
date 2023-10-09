@@ -24,7 +24,7 @@ func NewCoordinator() *Coordinator {
 	}
 }
 
-func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, inputFolder string) (string, error) {
+func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, reduceFunc string, inputFolder string) (string, error) {
 	// Step 1: Load the config
 	c.LoadConfig(configFilepath)
 
@@ -52,6 +52,11 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, inpu
 	// (5a) Start off different threads for each worker
 	// (5b) Periodically check on each worker until completion
 	// (5c) Once completed, update the status of each worker as well as the Reduce partition status
+	reduceError := c.RunReduceWorkers(reduceFunc, inputFolder)
+
+	if reduceError != nil {
+		return "", reduceError
+	}
 
 	// Step 6: Return the filepath to the final output as well as any errors
 	return "", nil
@@ -97,6 +102,10 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string) error {
 			return workerErr
 		}
 	}
+	return nil
+}
+
+func (c *Coordinator) RunReduceWorkers(reduceFunc string, intermediateResults string) error {
 	return nil
 }
 
