@@ -1,6 +1,7 @@
 package systemTest
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"sync"
@@ -19,10 +20,12 @@ func TestEmersonWordCount_SingleWorker(t *testing.T) {
 	coordConfigFile := "../coordinator/test_resources/single_mocked_worker.json"
 	emersonFolder := "test_storage"
 
+	expectedFinalOutput := map[string]string{"test": "test"}
+
 	var wg sync.WaitGroup
 
+	// TODO: ensure the worker process is closed
 	workerArgs := []string{"--port=5050"}
-	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		if err := runSubprocess("../main.exe", workerArgs); err != nil {
@@ -43,36 +46,45 @@ func TestEmersonWordCount_SingleWorker(t *testing.T) {
 
 	wg.Wait()
 
-	// _, err := os.Stat(filepath)
-	// if err != nil {
-	// 	t.Errorf("Output file does not exist: %v", err)
-	// 	t.Fail()
-	// }
+	expectedFinalResultPath := "test_final.json"
+	expectedIntermediateResultsPath := "intermediate/test_intermediate.json"
 
-	// file, fileOpenError := os.Open(filepath)
-	// if fileOpenError != nil {
-	// 	t.Errorf("Error upon opening output file.")
-	// 	t.Fail()
-	// }
+	_, fileExistsError := os.Stat(expectedFinalResultPath)
+	if fileExistsError != nil {
+		t.Errorf("Final output file does not exist: %v", fileExistsError)
+		t.Fail()
+	}
 
-	// fileText := ""
+	finalFile, fileOpenError := os.Open(expectedFinalResultPath)
+	if fileOpenError != nil {
+		t.Errorf("Error upon opening final output file: %v", fileOpenError)
+		t.Fail()
+	}
 
-	// scanner := bufio.NewScanner(file)
-	// for scanner.Scan() {
-	// 	currLine := scanner.Text()
-	// 	fileText += currLine
-	// }
+	finalOutput := make(map[string]string)
+	decoder := json.NewDecoder(finalFile)
+	if decodeErr := decoder.Decode(&finalOutput); decodeErr != nil {
+		t.Errorf("Error upon decoding output file: %v", decodeErr)
+		t.Fail()
+	}
 
-	// if fileText != contents {
-	// 	t.Errorf("Read text does not match input contents. Input contents were: %v", contents)
-	// 	t.Fail()
-	// }
+	for index, val := range expectedFinalOutput {
+		if finalOutput[index] != val {
+			t.Errorf("Final output does not match expected on a given key: %v, found values %v != %v", index, val, finalOutput[index])
+			t.Fail()
+		}
+	}
 
-	// file.Close()
-	// os.Remove(filepath)
-	// if err != nil {
-	// 	t.Errorf("Error deleting")
-	// }
+	finalFile.Close()
+	removeErr := os.Remove(expectedFinalResultPath)
+	if removeErr != nil {
+		t.Errorf("Error deleting final output")
+	}
+
+	os.Remove(expectedIntermediateResultsPath)
+	if removeErr != nil {
+		t.Errorf("Error deleting intermediate output")
+	}
 }
 
 func runSubprocess(name string, args []string) error {

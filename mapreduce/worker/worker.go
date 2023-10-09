@@ -172,7 +172,7 @@ func ReadFromJson(jsonpath string) ([]KeyValue, error) {
 	decoder := json.NewDecoder(file)
 
 	if decodeErr := decoder.Decode(&decodedData); decodeErr != nil {
-		// TODO: do something on a decode error
+		return decodedData, decodeErr
 	}
 
 	return decodedData, nil
