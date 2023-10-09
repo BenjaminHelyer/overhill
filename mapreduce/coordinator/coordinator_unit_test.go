@@ -32,9 +32,11 @@ func TestSendMapRequest(t *testing.T) {
 	response, mapError := SendMapRequest(workerUrl, "wc_total", "../storage/..", "intermediate.json")
 	if mapError != nil {
 		t.Errorf("Error raised after sending Map request: %v", mapError)
+		t.Fail()
 	}
 	if response != expectedResponse {
 		t.Errorf("Response to Map request was %v, expected response was %v", response, expectedResponse)
+		t.Fail()
 	}
 }
 

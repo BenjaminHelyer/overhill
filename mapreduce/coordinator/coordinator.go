@@ -28,7 +28,12 @@ const INTERMEDIATE_FOLDER = "intermediate/"
 
 func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, reduceFunc string, inputFolder string) (string, error) {
 	// Step 1: Load the config
-	c.LoadConfig(configFilepath)
+	configErr := c.LoadConfig(configFilepath)
+	if configErr != nil {
+		return "", configErr
+	} else if len(c.workerStatus) == 0 {
+		return "", fmt.Errorf("Did not find any workers in config file.")
+	}
 
 	// Step 2: Partition the input folder contents (just by individual files for now)
 	// Note that later, input folder could be on a filesystem or object store rather than locally
@@ -142,12 +147,12 @@ func (c *Coordinator) LoadConfig(configFilepath string) error {
 	// n.b. we expect (for now) that the config file will be a .json
 	file, fileOpenError := os.Open(configFilepath)
 	if fileOpenError != nil {
-		// TODO: do something on a file open error
+		return fileOpenError
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	if decodeErr := decoder.Decode(&c.workerStatus); decodeErr != nil {
-		// TODO: do something on a decode error
+		return decodeErr
 	}
 
 	return nil
