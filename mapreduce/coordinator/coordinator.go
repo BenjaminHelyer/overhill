@@ -57,7 +57,7 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, redu
 	// (5a) Start off different threads for each worker
 	// (5b) Periodically check on each worker until completion
 	// (5c) Once completed, update the status of each worker as well as the Reduce partition status
-	reduceError := c.RunReduceWorkers(reduceFunc, inputFolder)
+	reduceError := c.RunReduceWorkers(reduceFunc, INTERMEDIATE_FOLDER)
 
 	if reduceError != nil {
 		return "", reduceError
@@ -122,8 +122,6 @@ func (c *Coordinator) RunReduceWorkers(reduceFunc string, intermediateFolder str
 		firstPartition = partition
 		break
 	}
-
-	print("Saw first partition as: ", firstPartition, "\n")
 
 	for workerUrl := range c.workerStatus {
 		// TODO: rather than combining here, let's store the path to the partition in the partition map
