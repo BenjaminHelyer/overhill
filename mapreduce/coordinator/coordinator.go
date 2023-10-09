@@ -24,6 +24,8 @@ func NewCoordinator() *Coordinator {
 	}
 }
 
+const INTERMEDIATE_FOLDER = "intermediate/"
+
 func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, reduceFunc string, inputFolder string) (string, error) {
 	// Step 1: Load the config
 	c.LoadConfig(configFilepath)
@@ -40,13 +42,18 @@ func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, redu
 	// (3a) Start off different threads for each worker
 	// (3b) Periodically check on each worker until completion
 	// (3c) Once completed, update the status of each worker as well as the Map partition status
-	mapError := c.RunMapWorkers(mapFunc, inputFolder)
+	mapError := c.RunMapWorkers(mapFunc, inputFolder, INTERMEDIATE_FOLDER)
 
 	if mapError != nil {
 		return "", mapError
 	}
 
 	// Step 4: Partition the intermediate files (just by indepedent worker outputs for now)
+	partitionError := c.PartitionFolder(INTERMEDIATE_FOLDER)
+	if partitionError != nil {
+		print("Encountered partition error: ", partitionError.Error(), "\n")
+		return "", partitionError
+	}
 
 	// Step 5: Assign reduce tasks to workers
 	// (5a) Start off different threads for each worker
@@ -83,7 +90,7 @@ func (c *Coordinator) PartitionFolder(folderPath string) error {
 	return nil
 }
 
-func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string) error {
+func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermediateFolder string) error {
 	var firstPartition string
 	for partition := range c.mapPartitionStatus {
 		firstPartition = partition
@@ -92,7 +99,7 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string) error {
 
 	for workerUrl := range c.workerStatus {
 		// TODO: rather than combining here, let's store the path to the partition in the partition map
-		response, workerErr := SendMapRequest(workerUrl, mapFunc, inputFolder+firstPartition, "test"+"_intermediate.json")
+		response, workerErr := SendMapRequest(workerUrl, mapFunc, inputFolder+firstPartition, intermediateFolder+"test"+"_intermediate.json")
 
 		// TODO: rather than raising here, mark the worker as bad and assign the map task to another worker
 		// but later need to consider the case where map task itself is bad
@@ -105,7 +112,25 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string) error {
 	return nil
 }
 
-func (c *Coordinator) RunReduceWorkers(reduceFunc string, intermediateResults string) error {
+func (c *Coordinator) RunReduceWorkers(reduceFunc string, intermediateFolder string) error {
+	var firstPartition string
+	for partition := range c.reducePartitionStatus {
+		firstPartition = partition
+		break
+	}
+
+	for workerUrl := range c.workerStatus {
+		// TODO: rather than combining here, let's store the path to the partition in the partition map
+		response, workerErr := SendReduceRequest(workerUrl, reduceFunc, intermediateFolder+firstPartition, "test"+"_final.json")
+
+		// TODO: rather than raising here, mark the worker as bad and assign the map task to another worker
+		// but later need to consider the case where map task itself is bad
+		if response != "Complete" {
+			return fmt.Errorf("Received bad response from worker: %v", response)
+		} else if workerErr != nil {
+			return workerErr
+		}
+	}
 	return nil
 }
 
