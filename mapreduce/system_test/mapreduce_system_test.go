@@ -2,10 +2,12 @@ package systemTest
 
 import (
 	"encoding/json"
+	"main/worker"
 	"os"
 	"os/exec"
 	"sync"
 	"testing"
+	"time"
 )
 
 // we shall get the total word count of
@@ -18,41 +20,66 @@ import (
 // for Reduce right now)
 func TestEmersonWordCount_SingleWorker(t *testing.T) {
 	coordConfigFile := "../coordinator/test_resources/single_mocked_worker.json"
-	emersonFolder := "test_storage"
+	emersonFolder := "test_storage/self_reliance/"
 
-	expectedFinalOutput := map[string]string{"test": "test"}
+	expectedFinalOutput := []worker.KeyValue{
+		{"word", "9985"},
+	}
+
+	// timeout to ensure the test doesn't run forever
+	timeout := 2 * time.Second
+	t.Parallel() // allow this to run in parallel with other tests
+
+	timeoutCh := make(chan struct{})
+	go func() {
+		time.Sleep(timeout + 1)
+		timeoutCh <- struct{}{}
+	}()
 
 	var wg sync.WaitGroup
+	var workerProcess, coordProcess *exec.Cmd
+	var workerError, coordError error
+	// need to ensure the worker process starts before the coordinator
+	workerStarted := make(chan struct{})
 
-	// TODO: ensure the worker process is closed
 	workerArgs := []string{"--port=5050"}
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		workerProcess, workerError := runSubprocess("../main.exe", workerArgs)
-		defer workerProcess.Process.Kill()
+		workerProcess, workerError = runSubprocess("../main.exe", workerArgs)
 		if workerError != nil {
 			t.Errorf("Error running worker subprocess: %v", workerError)
 			t.Fail()
 		}
+
+		close(workerStarted)
+		defer wg.Done()
 	}()
+
+	// wait for the worker process to start
+	<-workerStarted
 
 	coordinatorArgs := []string{"--coord", "--config=" + coordConfigFile, "--mapFunc=wc_total", "--reduceFunc=wc_total", "--input=" + emersonFolder}
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		coordProcess, coordError := runSubprocess("../main.exe", coordinatorArgs)
-		defer coordProcess.Process.Kill()
+		coordProcess, coordError = runSubprocess("../main.exe", coordinatorArgs)
 		if coordError != nil {
 			t.Errorf("Error running coordinator subprocess: %v", coordError)
 			t.Fail()
 		}
+
+		coordError := coordProcess.Wait()
+		if coordError != nil {
+			t.Errorf("Error running coordinator subprocess: %v", coordError)
+			t.Fail()
+		}
+
+		defer wg.Done()
 	}()
 
 	wg.Wait()
 
 	expectedFinalResultPath := "test_final.json"
-	// expectedIntermediateResultsPath := "intermediate/test_intermediate.json"
+	expectedIntermediateResultsPath := "intermediate/test_intermediate.json"
 
 	_, fileExistsError := os.Stat(expectedFinalResultPath)
 	if fileExistsError != nil {
@@ -66,7 +93,7 @@ func TestEmersonWordCount_SingleWorker(t *testing.T) {
 		t.Fail()
 	}
 
-	finalOutput := make(map[string]string)
+	var finalOutput []worker.KeyValue
 	decoder := json.NewDecoder(finalFile)
 	if decodeErr := decoder.Decode(&finalOutput); decodeErr != nil {
 		t.Errorf("Error upon decoding output file: %v", decodeErr)
@@ -80,22 +107,39 @@ func TestEmersonWordCount_SingleWorker(t *testing.T) {
 		}
 	}
 
-	// finalFile.Close()
-	// removeErr := os.Remove(expectedFinalResultPath)
-	// if removeErr != nil {
-	// 	t.Errorf("Error deleting final output")
-	// }
+	finalFile.Close()
+	removeErr := os.Remove(expectedFinalResultPath)
+	if removeErr != nil {
+		t.Errorf("Error deleting final output")
+	}
 
-	// os.Remove(expectedIntermediateResultsPath)
-	// if removeErr != nil {
-	// 	t.Errorf("Error deleting intermediate output")
-	// }
+	os.Remove(expectedIntermediateResultsPath)
+	if removeErr != nil {
+		t.Errorf("Error deleting intermediate output")
+	}
+
+	defer func() {
+		if workerProcess != nil && workerProcess.Process != nil {
+			print("Killing worker process...\n")
+			killErr := workerProcess.Process.Kill()
+			if killErr != nil {
+				t.Errorf("Error upon trying to kill worker process: %v", killErr)
+				t.Fail()
+			}
+		}
+	}()
+
+	select {
+	case <-timeoutCh:
+		// test completed within timeout bounds
+		print("Test completed within timeout bounds.\n")
+	case <-time.After(timeout):
+		t.Errorf("Test timed out after %v [s]", timeout)
+		t.Fail()
+	}
 }
 
 func runSubprocess(name string, args []string) (*exec.Cmd, error) {
-	print("***\n")
-	print("Running subprocess: ", name, " with args: ", args, "\n")
-	print("***\n")
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
