@@ -102,7 +102,7 @@ func TestPartitionFolder(t *testing.T) {
 	}
 
 	uutCoordinator := NewCoordinator()
-	uutCoordinator.PartitionFolder(folderName)
+	uutCoordinator.PartitionFolder(folderName, "map")
 
 	if len(uutCoordinator.mapPartitionStatus) != len(expectedPartitions) {
 		t.Errorf("Expected %v number of partitions, but got %v number.", expectedPartitions, len(uutCoordinator.mapPartitionStatus))
@@ -129,4 +129,33 @@ func TestPartitionFolder(t *testing.T) {
 			t.Fail()
 		}
 	}
+
+	uutCoordinator.PartitionFolder(folderName, "reduce")
+
+	if len(uutCoordinator.reducePartitionStatus) != len(expectedPartitions) {
+		t.Errorf("Expected %v number of partitions, but got %v number.", expectedPartitions, len(uutCoordinator.mapPartitionStatus))
+		t.Fail()
+	}
+
+	for partition := range uutCoordinator.reducePartitionStatus {
+		if _, exists := expectedPartitions[partition]; exists {
+			expectedPartitions[partition] = true
+		} else {
+			t.Errorf("Did not correctly load all partitions input folder. Found unexpected partition: %v", partition)
+			t.Fail()
+		}
+
+		if uutCoordinator.reducePartitionStatus[partition] != "unprocessed" {
+			t.Errorf("Expected all partitions to be marked as 'unprocessed' after PartitionFolder func. Instead, found key %v", uutCoordinator.mapPartitionStatus[partition])
+			t.Fail()
+		}
+	}
+
+	for partition := range expectedPartitions {
+		if expectedPartitions[partition] == false {
+			t.Errorf("Did not correctly load all parititions from input folder. This partition was not loaded: %v", partition)
+			t.Fail()
+		}
+	}
+
 }
