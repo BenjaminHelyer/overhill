@@ -1,3 +1,5 @@
 {
-    "http://localhost:5050": "OK"
+    "http://localhost:5060": "OK",
+    "http://localhost:5070": "OK",
+    "http://localhost:5080": "OK"
 }
