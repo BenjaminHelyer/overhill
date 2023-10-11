@@ -126,8 +126,33 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermed
 		idleWorkers = append(idleWorkers, worker)
 	}
 
-	// TODO: implement a thread to assign incomplete tasks to idle workers
+	// thread to assign incomplete tasks to idle workers
 	// there should also be one thread for each assigned task
+	go func(partitionsNeedWorker []string, idleWorkers []string) {
+		for partitionsNeedWorker != nil && idleWorkers != nil {
+			go func(partitionsNeedWorker []string, idleWorkers []string) {
+				// pop value off of partition stack
+				partition := partitionsNeedWorker[len(partitionsNeedWorker)-1]
+				partitionsNeedWorker = partitionsNeedWorker[:len(partitionsNeedWorker)-1]
+
+				// pop value off of worker stack
+				worker := idleWorkers[len(idleWorkers)-1]
+				idleWorkers = idleWorkers[:len(idleWorkers)-1]
+
+				// send map request to the worker server
+				// TODO: later on we might want to log the worker error
+				response, _ := SendMapRequest(worker, mapFunc, partition, intermediateFolder+partition+"_intermediate.json")
+
+				if response == "complete" {
+					c.mapPartitionStatus[partition] = "complete"
+					idleWorkers = append(idleWorkers, worker)
+				} else {
+					c.mapPartitionStatus[partition] = "failed"
+					partitionsNeedWorker = append(partitionsNeedWorker, partition)
+				}
+			} (partitionsNeedWorker []string, idleWorkers []string)
+		}
+	}(partitionsNeedWorker, idleWorkers)
 
 	// thread to check on all partitions
 	// the process will wait on this thread to finish before
@@ -153,25 +178,6 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermed
 		// only move onto Reduce when the above loop terminates
 		defer mapWait.Done()
 	}(partitionsNeedWorker)
-
-	var firstPartition string
-	for partition := range c.mapPartitionStatus {
-		firstPartition = partition
-		break
-	}
-
-	// TODO: handle faults if a particular Map task doesn't complete
-	for workerUrl := range c.workerStatus {
-		response, workerErr := SendMapRequest(workerUrl, mapFunc, inputFolder+firstPartition, intermediateFolder+"test"+"_intermediate.json")
-
-		// TODO: rather than raising here, mark the worker as bad and assign the map task to another worker
-		// but later need to consider the case where map task itself is bad
-		if response != "Complete" {
-			return fmt.Errorf("Received bad response from worker: %v", response)
-		} else if workerErr != nil {
-			return workerErr
-		}
-	}
 
 	mapWait.Wait()
 	return mapError
