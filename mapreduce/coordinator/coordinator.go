@@ -132,6 +132,9 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermed
 	}
 
 	for len(completedPartitions) < totNumPartitions {
+		for part := range completedPartitions {
+			print(part, "\n")
+		}
 		// 1. Iterate through unprocessed partitions and give to idle workers
 		for len(idleWorkers) != 0 && len(unprocessedPartitions) != 0 {
 			var currPartition, currWorker string
@@ -140,7 +143,7 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermed
 			currWorker, idleWorkers = Pop(idleWorkers)
 			// (b) Assign tasks to the worker
 			go func() {
-				assignmentErr := c.AssignRequest(currPartition, currWorker, "map", mapFunc, intermediateFolder)
+				assignmentErr := c.AssignRequest(currPartition, currWorker, "map", mapFunc, inputFolder, intermediateFolder)
 
 				// TODO: figure out how to handle errors in a good way concurrently
 				if assignmentErr != nil {
@@ -159,10 +162,12 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermed
 					// failure: put partition back on unprocessed stack and assume worker has failed
 					unprocessedPartitions = append(unprocessedPartitions, currPartition)
 				}
+				return
 			}()
+			// TODO: handle case where all workers fail? Or is this an extremely unlikely case?
 		}
 		// 4. Wait X seconds until checking again, where X is a design parameter
-		time.Sleep(MAP_WAIT_TIME)
+		time.Sleep(MAP_WAIT_TIME * time.Second)
 	}
 
 	return mapError
@@ -248,20 +253,20 @@ func Pop(inputSlice []string) (string, []string) {
 	return inputSlice[len(inputSlice)-1], inputSlice[:len(inputSlice)-1]
 }
 
-func (c *Coordinator) AssignRequest(partition string, worker string, requestType string, mapFunc string, outputFolder string) error {
+func (c *Coordinator) AssignRequest(partition string, worker string, requestType string, mapFunc string, inputFolder string, outputFolder string) error {
 	var response string
 	var requestErr error
 
 	if requestType == "map" {
-		response, requestErr = SendMapRequest(worker, mapFunc, partition, outputFolder+partition+"_intermediate.json")
+		response, requestErr = SendMapRequest(worker, mapFunc, inputFolder+partition, outputFolder+partition+"_intermediate.json")
 	} else if requestType == "reduce" {
-		response, requestErr = SendReduceRequest(worker, mapFunc, partition, outputFolder+partition+"_intermediate.json")
+		response, requestErr = SendReduceRequest(worker, mapFunc, inputFolder+partition, outputFolder+partition+"_intermediate.json")
 	} else {
 		response = ""
 		requestErr = fmt.Errorf("Error: received invalid request type. Expected either 'map' or 'reduce'; instead received: %v", requestType)
 	}
 
-	if response == "complete" && requestErr == nil {
+	if response == "Complete" && requestErr == nil {
 		c.mapPartitionStatus[partition] = "complete"
 	} else {
 		c.mapPartitionStatus[partition] = "failed"
