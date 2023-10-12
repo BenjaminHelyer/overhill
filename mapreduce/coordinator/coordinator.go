@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -27,6 +26,7 @@ func NewCoordinator() *Coordinator {
 }
 
 const INTERMEDIATE_FOLDER = "intermediate/"
+const MAP_WAIT_TIME = 1
 
 func (c *Coordinator) RunCoordinator(configFilepath string, mapFunc string, reduceFunc string, inputFolder string) (string, error) {
 	// Step 1: Load the config
@@ -114,11 +114,16 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermed
 	var mapError error
 	mapError = nil
 
+	totNumPartitions := len(c.mapPartitionStatus)
+
 	// initialize stack of partitions needing a worker with all partitions
-	var partitionsNeedWorker []string
+	var unprocessedPartitions []string
 	for partition := range c.mapPartitionStatus {
-		partitionsNeedWorker = append(partitionsNeedWorker, partition)
+		unprocessedPartitions = append(unprocessedPartitions, partition)
 	}
+
+	// initialize stack of completed partitions (initially left empty)
+	var completedPartitions []string
 
 	// initialize stack of idle workers needing a task
 	var idleWorkers []string
@@ -126,60 +131,40 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermed
 		idleWorkers = append(idleWorkers, worker)
 	}
 
-	// thread to assign incomplete tasks to idle workers
-	// there should also be one thread for each assigned task
-	go func(partitionsNeedWorker []string, idleWorkers []string) {
-		for partitionsNeedWorker != nil && idleWorkers != nil {
-			go func(partitionsNeedWorker []string, idleWorkers []string) {
-				// pop value off of partition stack
-				partition := partitionsNeedWorker[len(partitionsNeedWorker)-1]
-				partitionsNeedWorker = partitionsNeedWorker[:len(partitionsNeedWorker)-1]
+	for len(completedPartitions) < totNumPartitions {
+		// 1. Iterate through unprocessed partitions and give to idle workers
+		for len(idleWorkers) != 0 && len(unprocessedPartitions) != 0 {
+			var currPartition, currWorker string
+			// (a) Pop off task from map stack and a worker from its stack
+			currPartition, unprocessedPartitions = Pop(unprocessedPartitions)
+			currWorker, idleWorkers = Pop(idleWorkers)
+			// (b) Assign tasks to the worker
+			go func() {
+				assignmentErr := c.AssignRequest(currPartition, currWorker, "map", mapFunc, intermediateFolder)
 
-				// pop value off of worker stack
-				worker := idleWorkers[len(idleWorkers)-1]
-				idleWorkers = idleWorkers[:len(idleWorkers)-1]
+				// TODO: figure out how to handle errors in a good way concurrently
+				if assignmentErr != nil {
+					mapError = fmt.Errorf("Received error upon assigning request: %v", assignmentErr)
+					return
+				}
 
-				// send map request to the worker server
-				// TODO: later on we might want to log the worker error
-				response, _ := SendMapRequest(worker, mapFunc, partition, intermediateFolder+partition+"_intermediate.json")
-
-				if response == "complete" {
-					c.mapPartitionStatus[partition] = "complete"
-					idleWorkers = append(idleWorkers, worker)
+				// TODO: work out locks for these two stacks
+				// alternatively we could do this logic at the beginning of the loop, rather than in each separate go routine
+				// but this would involve checking all the workers and all the map tasks at every step
+				if c.mapPartitionStatus[currPartition] == "complete" {
+					// put worker back on idle workers stack
+					idleWorkers = append(idleWorkers, currWorker)
+					completedPartitions = append(completedPartitions, currPartition)
 				} else {
-					c.mapPartitionStatus[partition] = "failed"
-					partitionsNeedWorker = append(partitionsNeedWorker, partition)
+					// failure: put partition back on unprocessed stack and assume worker has failed
+					unprocessedPartitions = append(unprocessedPartitions, currPartition)
 				}
-			} (partitionsNeedWorker []string, idleWorkers []string)
+			}()
 		}
-	}(partitionsNeedWorker, idleWorkers)
+		// 4. Wait X seconds until checking again, where X is a design parameter
+		time.Sleep(MAP_WAIT_TIME)
+	}
 
-	// thread to check on all partitions
-	// the process will wait on this thread to finish before
-	// either exiting or moving onto the reduce step
-	var mapWait sync.WaitGroup
-	allDone := false
-	iteration := 0
-	go func(partitionsNeedWorker []string) {
-		for allDone != true || iteration < 10 {
-			time.Sleep(1) // TODO: change this into a design parameter somewhere
-			allDone = true
-			for _, status := range c.mapPartitionStatus {
-				// in the go task for each worker request, we'll mark the task as complete
-				if status != "complete" {
-					allDone = false
-					// TODO: determine if this worker if failed.
-					// if it has, mark the partition status as incomplete and put it back on the stack
-				}
-			}
-			iteration++
-		}
-		// TODO: update mapError on non-recoverable failures
-		// only move onto Reduce when the above loop terminates
-		defer mapWait.Done()
-	}(partitionsNeedWorker)
-
-	mapWait.Wait()
 	return mapError
 }
 
@@ -257,4 +242,30 @@ func ReadAndRaiseResponse(response http.Response) (string, error) {
 	}
 
 	return string(body), nil
+}
+
+func Pop(inputSlice []string) (string, []string) {
+	return inputSlice[len(inputSlice)-1], inputSlice[:len(inputSlice)-1]
+}
+
+func (c *Coordinator) AssignRequest(partition string, worker string, requestType string, mapFunc string, outputFolder string) error {
+	var response string
+	var requestErr error
+
+	if requestType == "map" {
+		response, requestErr = SendMapRequest(worker, mapFunc, partition, outputFolder+partition+"_intermediate.json")
+	} else if requestType == "reduce" {
+		response, requestErr = SendReduceRequest(worker, mapFunc, partition, outputFolder+partition+"_intermediate.json")
+	} else {
+		response = ""
+		requestErr = fmt.Errorf("Error: received invalid request type. Expected either 'map' or 'reduce'; instead received: %v", requestType)
+	}
+
+	if response == "complete" && requestErr == nil {
+		c.mapPartitionStatus[partition] = "complete"
+	} else {
+		c.mapPartitionStatus[partition] = "failed"
+	} // TODO: possibly raise server-side errors to a level above this
+
+	return requestErr
 }
