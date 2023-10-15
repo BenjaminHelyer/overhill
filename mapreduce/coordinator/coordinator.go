@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+type KeyValue struct {
+	Key   string
+	Value string
+}
+
 type Coordinator struct {
 	configFilepath        string
 	mapPartitionStatus    map[string]string
@@ -174,15 +179,44 @@ func (c *Coordinator) RunMapWorkers(mapFunc string, inputFolder string, intermed
 }
 
 func (c *Coordinator) RunReduceWorkers(reduceFunc string, intermediateFolder string) error {
-	var firstPartition string
+	// Do a basic scheme that will work on the word count function first
+	// In the word count example, all keys are the same, so we can really only use one reduce worker
+	// This is the problem known as "reduce-side skew"
+	// Honestly, this makes our job easier for this example: we can ignore partitioning for now
+	// and then only worry about seeing true parallelism on the Map side
+	// This would allow us to adapt this to multiple machines more easily,
+	// which is really our most interesting focus for this project
+	// (dealing with fault-tolerance more than partitioning strategy)
+
+	// Basic implementation for the above description of the reduce side:
+	// Combine all partitions ahead of time on the Coordinator side (can hold in memory then write to file)
+	// Then send a reduce request to the worker to just reduce the file with all the partitions in it
+	// In this manner, we likely don't have to change the workers later on, we only have to change the behavior
+	// of the folder when we want to upgrade
+
+	var allPartitionsTxt []KeyValue
 	for partition := range c.reducePartitionStatus {
-		firstPartition = partition
-		break
+		txt, fileErr := ReadFromJson(intermediateFolder + partition)
+		if fileErr != nil {
+			return fileErr
+		}
+		for _, kv := range txt {
+			allPartitionsTxt = append(allPartitionsTxt, kv)
+		}
 	}
 
+	singleIntermediateResultName := "TotalIntermediate.json"
+	writeErr := WriteToJson(singleIntermediateResultName, allPartitionsTxt)
+	if writeErr != nil {
+		return writeErr
+	}
+
+	// Send a reduce request to a single worker with this one file
+	// Deal with faults, cycling through workers as needed
+
+	// TODO: deal with faults on the reduce side
 	for workerUrl := range c.workerStatus {
-		// TODO: rather than combining here, let's store the path to the partition in the partition map
-		response, workerErr := SendReduceRequest(workerUrl, reduceFunc, intermediateFolder+firstPartition, "test"+"_final.json")
+		response, workerErr := SendReduceRequest(workerUrl, reduceFunc, singleIntermediateResultName, "test"+"_final.json")
 
 		// TODO: rather than raising here, mark the worker as bad and assign the map task to another worker
 		// but later need to consider the case where map task itself is bad
@@ -273,4 +307,37 @@ func (c *Coordinator) AssignRequest(partition string, worker string, requestType
 	} // TODO: possibly raise server-side errors to a level above this
 
 	return requestErr
+}
+
+func WriteToJson(jsonpath string, kvPairs []KeyValue) error {
+	file, fileCreationError := os.Create(jsonpath)
+	if fileCreationError != nil {
+		return fileCreationError
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+
+	if encodingError := encoder.Encode(kvPairs); encodingError != nil {
+		return encodingError
+	}
+
+	return nil
+}
+
+func ReadFromJson(jsonpath string) ([]KeyValue, error) {
+	file, fileOpenError := os.Open(jsonpath)
+	if fileOpenError != nil {
+		// TODO: do something on a file open error
+	}
+	defer file.Close()
+
+	var decodedData []KeyValue
+	decoder := json.NewDecoder(file)
+
+	if decodeErr := decoder.Decode(&decodedData); decodeErr != nil {
+		return decodedData, decodeErr
+	}
+
+	return decodedData, nil
 }

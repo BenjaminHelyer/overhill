@@ -144,7 +144,7 @@ func TestEmersonWordCount_MultiWorker(t *testing.T) {
 	emersonFolder := "test_storage/emerson/"
 
 	expectedFinalOutput := []worker.KeyValue{
-		{"word", "9985"},
+		{"word", "39473"},
 	}
 
 	// timeout to ensure the test doesn't run forever
@@ -207,7 +207,7 @@ func TestEmersonWordCount_MultiWorker(t *testing.T) {
 	wg.Wait()
 
 	expectedFinalResultPath := "test_final.json"
-	expectedIntermediateResultsPath := "intermediate/test_intermediate.json"
+	// expectedIntermediateResultsPath := "intermediate/test_intermediate.json"
 
 	_, fileExistsError := os.Stat(expectedFinalResultPath)
 	if fileExistsError != nil {
@@ -235,16 +235,16 @@ func TestEmersonWordCount_MultiWorker(t *testing.T) {
 		}
 	}
 
-	finalFile.Close()
-	removeErr := os.Remove(expectedFinalResultPath)
-	if removeErr != nil {
-		t.Errorf("Error deleting final output")
-	}
+	// finalFile.Close()
+	// removeErr := os.Remove(expectedFinalResultPath)
+	// if removeErr != nil {
+	// 	t.Errorf("Error deleting final output")
+	// }
 
-	os.Remove(expectedIntermediateResultsPath)
-	if removeErr != nil {
-		t.Errorf("Error deleting intermediate output")
-	}
+	// removeIntermediateErr := os.Remove(expectedIntermediateResultsPath)
+	// if removeIntermediateErr != nil {
+	// 	t.Errorf("Error deleting intermediate output")
+	// }
 
 	defer func() {
 		for _, workerProcess := range workerProcesses {
