@@ -207,7 +207,7 @@ func TestEmersonWordCount_MultiWorker(t *testing.T) {
 	wg.Wait()
 
 	expectedFinalResultPath := "test_final.json"
-	// expectedIntermediateResultsPath := "intermediate/test_intermediate.json"
+	expectedIntermediateResultsFolder := "intermediate/"
 
 	_, fileExistsError := os.Stat(expectedFinalResultPath)
 	if fileExistsError != nil {
@@ -235,16 +235,25 @@ func TestEmersonWordCount_MultiWorker(t *testing.T) {
 		}
 	}
 
-	// finalFile.Close()
-	// removeErr := os.Remove(expectedFinalResultPath)
-	// if removeErr != nil {
-	// 	t.Errorf("Error deleting final output")
-	// }
+	finalFile.Close()
+	removeErr := os.Remove(expectedFinalResultPath)
+	if removeErr != nil {
+		t.Errorf("Error deleting final output")
+	}
 
-	// removeIntermediateErr := os.Remove(expectedIntermediateResultsPath)
-	// if removeIntermediateErr != nil {
-	// 	t.Errorf("Error deleting intermediate output")
-	// }
+	// delete all interemediate files
+	dir, _ := os.Open(expectedIntermediateResultsFolder)
+	entries, _ := dir.ReadDir(-1)
+	for _, entry := range entries {
+		removeIntermediateErr := os.Remove(expectedIntermediateResultsFolder + entry.Name())
+		if removeIntermediateErr != nil {
+			t.Errorf("Error deleting intermediate output")
+		}
+	}
+
+	// delete total intermediate file
+	// this is really just for the total word count example
+	os.Remove("TotalIntermediate.json")
 
 	defer func() {
 		for _, workerProcess := range workerProcesses {
